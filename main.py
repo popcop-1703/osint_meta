@@ -8,7 +8,6 @@ import os
 ox.config(log_console=True, use_cache=True)
 
 
-
 def get_exif_data(image_path_):
     # Открываем изображение для чтения бинарного режима
     with open(image_path_, 'rb') as image_file:
