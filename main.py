@@ -3,21 +3,19 @@ import osmnx as ox
 import networkx as nx
 import matplotlib.pyplot as plt
 from haversine import haversine, Unit
+import os
 
 ox.config(log_console=True, use_cache=True)
 
 
-def get_exif_data(image_path):
+
+def get_exif_data(image_path_):
     # Открываем изображение для чтения бинарного режима
-    with open(image_path, 'rb') as image_file:
+    with open(image_path_, 'rb') as image_file:
         # Читаем метаданные изображения
         tags = exifread.process_file(image_file)
 
-        # Выводим все метаданные
-        for tag in tags.keys():
-            print(f"Tag: {tag}, Value: {tags[tag]}")
-
-    return tags
+        return tags
 
 
 def get_geo_location(exif_data):
@@ -43,17 +41,35 @@ def get_geo_location(exif_data):
         longitude_direction = exif_data['GPS GPSLongitudeRef'].values
         latitude_direction = exif_data['GPS GPSLatitudeRef'].values
 
-        # Формируем строку с геолокацией
-        location_string = f"{latitude_decimal} {latitude_direction}, {longitude_decimal} {longitude_direction}"
-        return location_string
+        # Возвращаем кортеж с координатами
+        return latitude_decimal, longitude_decimal, latitude_direction, longitude_direction
     else:
-        return "Геолокация не найдена."
+        return None
 
 
-# Пример использования
-image_path = 'check2.jpg'  # Замените на путь к вашему изображению
-exif_data = get_exif_data(image_path)
-location = get_geo_location(exif_data)
+# Папка с изображениями
+folder_path = 'for_check/'
+
+# Массив для хранения координат
+coordinates = []
+
+# Получаем список файлов в папке
+image_files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+
+# Для каждого файла извлекаем метаданные и координаты
+for image_file in image_files:
+    image_path = os.path.join(folder_path, image_file)
+    exif_data = get_exif_data(image_path)
+    location = get_geo_location(exif_data)
+    if location:
+        coordinates.append((location[0], location[1]))
+
+# Выводим координаты
+for coord in coordinates:
+    print("Latitude:", coord[0])
+    print("Longitude:", coord[1])
+    #print(coordinates[0])
+    print()
 
 
 ##print("Геолокация изображения:", location)
@@ -86,8 +102,8 @@ def plot_route(origin, destination):
 
 
 # Задание координат начальной и конечной точек (широта, долгота)
-origin_point = (55.65509502583181, 37.52414139021301)
-destination_point = (55.8201661047837,37.61224426261409)
+origin_point = (coordinates[0])
+destination_point = (coordinates[1])
 dist_ = haversine(origin_point, destination_point) * 1200
 
 # Построение маршрута
