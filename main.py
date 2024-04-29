@@ -100,7 +100,7 @@ for i, address in enumerate(addresses_array):
 
 def plot_route(waypoints):
     # Load road network graph from OpenStreetMap for the specified area
-    G = ox.graph_from_point(waypoints[0], network_type='drive', dist=haversine(waypoints[0], waypoints[1]) * 1200)
+    G = ox.graph_from_point(waypoints[0], network_type='drive', dist=haversine(waypoints[0], waypoints[2]) * 1200)
 
     # Find nearest nodes to the first waypoint
     orig_node = ox.nearest_nodes(G, waypoints[0][1], waypoints[0][0])
