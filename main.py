@@ -2,14 +2,14 @@ import exifread
 import osmnx as ox
 import networkx as nx
 import matplotlib.pyplot as plt
-from haversine import haversine, Unit
+from haversine import haversine
 import os
+from geopy.geocoders import Nominatim
 
 ox.config(log_console=True, use_cache=True)
 
 
 def get_exif_data(image_path_):
-    # Открываем изображение для чтения бинарного режима
     with open(image_path_, 'rb') as image_file:
         # Читаем метаданные изображения
         tags = exifread.process_file(image_file)
@@ -46,17 +46,33 @@ def get_geo_location(exif_data):
         return None
 
 
+def get_address_from_coordinates(latitude, longitude):
+    geolocator = Nominatim(user_agent="geo_locator")
+    location = geolocator.reverse((latitude, longitude))
+    return location.address
+
+
+def write_coordinates_and_addresses_to_file(coordinates_array, addresses_array, filename):
+    with open(filename, 'w') as file:
+        for i in range(len(coordinates_array)):
+            latitude, longitude = coordinates_array[i]
+            address = addresses_array[i]
+            file.write(f"Coordinates: {latitude}, {longitude}, Address: {address}\n")
+
+
 # Папка с изображениями
 folder_path = 'for_check/'
 
 # Массив для хранения координат
 coordinates = []
+addresses_array = []
 
 # Получаем список файлов в папке
 image_files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
 
 # Для каждого файла извлекаем метаданные и координаты
 for image_file in image_files:
+
     image_path = os.path.join(folder_path, image_file)
     exif_data = get_exif_data(image_path)
     location = get_geo_location(exif_data)
@@ -70,40 +86,47 @@ for coord in coordinates:
     #print(coordinates[0])
     print()
 
+for coords in coordinates:
+    latitude, longitude = coords
+    address = get_address_from_coordinates(latitude, longitude)
+    addresses_array.append(address)
 
-##print("Геолокация изображения:", location)
+write_coordinates_and_addresses_to_file(coordinates, addresses_array, "coordinates_and_addresses.txt")
+print("Координаты и адреса успешно записаны в файл.")
+# Вывод результатов
+for i, address in enumerate(addresses_array):
+    print(f"Coordinates: {coordinates[i]}, Address: {address}")
 
 
-def plot_route(origin, destination):
-    # Загрузка графа дорог из OpenStreetMap для заданной области
-    G = ox.graph_from_point(origin, network_type='drive', dist=dist_)
+def plot_route(waypoints):
+    # Load road network graph from OpenStreetMap for the specified area
+    G = ox.graph_from_point(waypoints[0], network_type='drive', dist=haversine(waypoints[0], waypoints[1]) * 1200)
 
-    # Нахождение ближайших узлов к заданным координатам
-    orig_node = ox.distance.nearest_nodes(G, origin[1], origin[0])
-    dest_node = ox.distance.nearest_nodes(G, destination[1], destination[0])
+    # Find nearest nodes to the first waypoint
+    orig_node = ox.nearest_nodes(G, waypoints[0][1], waypoints[0][0])
 
-    # Построение маршрута между найденными узлами
-    route = nx.shortest_path(G, orig_node, dest_node, weight='length')
+    # Plotting the route between consecutive waypoints
+    for i in range(1, len(waypoints)):
+        dest_node = ox.nearest_nodes(G, waypoints[i][1], waypoints[i][0])
+        route = nx.shortest_path(G, orig_node, dest_node, weight='length')
 
-    # Получение координат вершин маршрута
-    route_nodes = ox.graph_to_gdfs(G, nodes=False)
-    route_coords = route_nodes.loc[route].geometry.unary_union
+        # Get coordinates of route nodes
+        route_nodes = ox.graph_to_gdfs(G, nodes=False)
+        route_coords = route_nodes.loc[route].geometry.unary_union
 
-    # Построение карты с маршрутом
-    fig, ax = ox.plot_graph_route(G, route, route_color='b', route_linewidth=6, node_size=0, show=False, close=False)
+        # Plotting the route on the map
+        fig, ax = ox.plot_graph_route(G, route, route_color='b', route_linewidth=6, node_size=0, show=False,
+                                      close=False)
 
-    # Добавление начальной и конечной точек на карту
-    ax.scatter(origin[1], origin[0], c='green', s=100, edgecolor='k', zorder=3)
-    ax.scatter(destination[1], destination[0], c='red', s=100, edgecolor='k', zorder=3)
+        # Adding start and end points to the map
+        ax.scatter(waypoints[0][1], waypoints[0][0], c='green', s=100, edgecolor='k', zorder=3)
+        ax.scatter(waypoints[i][1], waypoints[i][0], c='red', s=100, edgecolor='k', zorder=3)
 
-    # Отображение карты с маршрутом
+        orig_node = dest_node
+
     plt.show()
 
 
-# Задание координат начальной и конечной точек (широта, долгота)
-origin_point = (coordinates[0])
-destination_point = (coordinates[1])
-dist_ = haversine(origin_point, destination_point) * 1200
+waypoints = [(coordinates[0]), (coordinates[1]), (coordinates[2])]
 
-# Построение маршрута
-plot_route(origin_point, destination_point)
+plot_route(waypoints)
